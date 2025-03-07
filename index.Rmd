@@ -13,6 +13,71 @@ library(flexdashboard)
 library(corrplot)
 ```
 
+#  Keygram visualisation
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+"features/ahram-j-1.json" |> 
+  compmus_chroma(norm = "identity") |> 
+  compmus_match_pitch_templates(
+    key_templates,         # Change to chord_templates if desired
+    norm = "euclidean",       # Try different norms (and match it with what you used in `compmus_chroma`)
+    distance = "angular"   # Try different distance metrics
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = "Template", fill = NULL) +
+  theme_classic() 
+
+```
+<br><br><br>
+In the keygram graph, we can notice the most intense color values, especially between 0-100 seconds, around C major and G major. Additionally, E minor appears relatively stable, with less variation in color intensity, with fewer yellow and greenish hues. This is interesting because, according to the Circle of Fifths, E minor is the relative minor of G major. B and E major, and G and C minor are also noticeable.
+
+# Chordogram visualisation 
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+"features/ahram-j-1.json" |> 
+  compmus_chroma(norm = "identity") |> 
+  compmus_match_pitch_templates(
+    chord_templates,         # Change to chord_templates if desired
+    norm = "manhattan",       # Try different norms (and match it with what you used in `compmus_chroma`)
+    distance = "manhattan"   # Try different distance metrics
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = "Template", fill = NULL) +
+  theme_classic() 
+
+```
+<br><br><br>
+In the choreography visualization we can see very intense values throughout the whole track for E minor, also noticeable is C major. In the first few second of the track we van see darker hues of B minor, G major and a bit of B major. Additionally at the ned of the track we see now light hues, and darker blocks from E major to A:7 and E minor to A minor.  
+
+# Chroma visualisation
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+
+"features/ahram-j-1.json" |>                           # Change the track
+  compmus_chroma(norm = "identity") |>                 # Change the norm
+  ggplot(aes(x = time, y = pc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:11,
+    minor_breaks = NULL,
+    labels = c(
+                "C", "C#|Db", "D", "D#|Eb",
+                "E", "F", "F#|Gb", "G",
+                "G#|Ab", "A", "A#|Bb", "B"
+              )
+  ) +
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()   
+```
+
 # Intorduction
 
 On this page I am going to compare my two songs to my class corpus. 
