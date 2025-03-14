@@ -1,19 +1,77 @@
 ---
-title: "My Computational Musiciology Portfolio! "
+title: "My Computational Musicology Portfolio!"
 author: "Judith"
 output: 
   flexdashboard::flex_dashboard:
     orientation: columns
     vertical_layout: fill
 ---
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(flexdashboard)
 library(corrplot)
-```
+library(tidyverse)
+library(ggplot2)
+source("compmus.R")
 
-#  Keygram visualisation
+```
+#  Signal novelty function
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  ggtitle("Signal Novelty Function of Ahram-J's (1) song") +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty")
+  
+```
+<br><br><br>
+We observe the highest novelty peaks around 10 seconds, 110 seconds, and 160 seconds, which likely indicate structural changes in the song.
+
+Around 10 seconds, we hear a noticeable stop in the music, aligning with the early peak in the graph.
+At approximately 115 seconds, the volume increases significantly, reflected by a sharp rise in energy novelty.
+Around 165 seconds, the volume diminishes, matching the final large peak before a drop in novelty.
+This suggests, that the signal function is probably accurate and captures the transitions in the music well. It was expected that the signal novelty function would work well, because the song has some dramtic changes.
+
+# Spectral novelty function
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_spectral_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Spectral Novelty")
+```
+<br><br><br>
+The spectral novelty function graph is significant less clear than the energy novelty function graph. Here we see no prominent cycles, but we can slightly see peeks at 10 seconds and 160 seconds, which we also saw (but more clear) in the energy novel function. However an additonal peak can be observed at the end of the track, which is also hearable in the song, at the end the song slows down and the volume weakens. We see no clear repeating patterns in the song.
+
+# Non-cyclyc tempogram
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+<br><br><br>
+We observe three distinct lines around 160 BPM, 360 BPM, and 500 BPM. However I think 160 BPM is very fast for this song, because it sounds like an emotional piano piece
+# cyclic tempogram
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+<br><br><br>
+The cyclic tempogram seems more representative we see a prominent line at 80 BPM, which is suitable for a moderate tempo emotional piano piece. 
+
+# Keygram visualisation
 ```{r, echo=FALSE}
 library(tidyverse)
 source("compmus.R")
@@ -25,11 +83,10 @@ source("compmus.R")
     distance = "angular"   # Try different distance metrics
   ) |>
   ggplot(aes(x = time, y = name, fill = d)) + 
-  geom_raster() +
+  geom_raster() +                 
   scale_fill_viridis_c(guide = "none") +               # Change the colours?
   labs(x = "Time (s)", y = "Template", fill = NULL) +
   theme_classic() 
-
 ```
 <br><br><br>
 In the keygram graph, we can notice the most intense color values, especially between 0-100 seconds, around C major and G major. Additionally, E minor appears relatively stable, with less variation in color intensity, with fewer yellow and greenish hues. This is interesting because, according to the Circle of Fifths, E minor is the relative minor of G major. B and E major, and G and C minor are also noticeable.
