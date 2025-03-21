@@ -104,6 +104,285 @@ heatmaply(
 Row {.sidebar data-height=1000}
 -------------------------------------
 ### Analysis 
-We can see that clustering with the method single, gives us the worst result, the cluster splits are very small and not vertically balanced. The average method gives us better results, we can already see clusters more higher up in the tree, but on the left we can see a cluster, whcih is not taking into regard in the higher clusters. In the complete clustering we see reasonable balanced clusters, and we see that the first 2 clusters at the top include all the songs. 
+- We can see that clustering with the method single, gives us the worst result, the cluster splits are very small and not vertically balanced. The average method gives us better results, we can already see clusters more higher up in the tree, but on the left we can see a cluster, whcih is not taking into regard in the higher clusters. In the complete clustering we see reasonable balanced clusters, and we see that the first 2 clusters at the top include all the songs. 
 
-*** in the heatmap
+-  in the heatmap
+
+
+Classification
+=====================================
+```{r, echo=FALSE}
+compmus2025_filtered <- 
+  compmus2025 |> filter(!is.na(ai)) |> 
+  mutate(ai = factor(if_else(ai, "AI", "Non-AI")))
+
+classification_recipe <-
+  recipe(
+    ai ~
+      arousal +
+      danceability +
+      instrumentalness +
+      tempo +
+      valence,
+    data = compmus2025_filtered
+  ) |>
+  step_center(all_predictors()) |>
+  step_scale(all_predictors())      # Converts to z-scores.
+  # step_range(all_predictors())    # Sets range to [0, 1].
+
+compmus_cv <- compmus2025_filtered |> vfold_cv(5)
+
+knn_model <-
+  nearest_neighbor(neighbors = 1) |>
+  set_mode("classification") |> 
+  set_engine("kknn")
+classification_knn <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(knn_model) |> 
+  fit_resamples(compmus_cv, control = control_resamples(save_pred = TRUE))
+
+
+classification_knn |> get_conf_mat() |> autoplot(type = "heatmap")
+
+library(gt)
+pr_df <- classification_knn |> get_pr()
+
+# Create a nicely formatted table
+pr_df |> 
+  gt() |>
+  tab_header(title = "Precision and Recall per Class") |>
+  fmt_number(columns = c("precision", "recall"), decimals = 2)
+```
+# Random forest 
+```{r, echo=FALSE}
+forest_model <-
+  rand_forest() |>
+  set_mode("classification") |> 
+  set_engine("ranger", importance = "impurity")
+indie_forest <- 
+  workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit_resamples(
+    compmus_cv, 
+    control = control_resamples(save_pred = TRUE)
+  )
+
+# table with accuracies
+indie_forest |> get_pr()
+
+# most important features
+workflow() |> 
+  add_recipe(classification_recipe) |> 
+  add_model(forest_model) |> 
+  fit(compmus2025_filtered) |> 
+  pluck("fit", "fit", "fit") |>
+  ranger::importance() |> 
+  enframe() |> 
+  mutate(name = fct_reorder(name, value)) |> 
+  ggplot(aes(name, value)) + 
+  geom_col() + 
+  coord_flip() +
+  theme_minimal() +
+  labs(x = NULL, y = "Importance")
+
+# good plot of random forest 
+plot1 <- compmus2025_filtered |>
+  ggplot(aes(x = instrumentalness, y = arousal, colour = ai, size = danceability)) +
+  geom_point(alpha = 0.8) +
+  scale_color_viridis_d() +
+  labs(
+    x = "Instrumentalness",
+    y = "Arousal",
+    size = "Danceability",
+    colour = "AI"
+  )
+
+ggplotly(plot1)
+
+```
+#  Signal novelty function
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_energy_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  ggtitle("Signal Novelty Function of Ahram-J's (1) song") +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Energy Novelty")
+  
+```
+<br><br><br>
+We observe the highest novelty peaks around 10 seconds, 110 seconds, and 160 seconds, which likely indicate structural changes in the song.
+
+Around 10 seconds, we hear a noticeable stop in the music, aligning with the early peak in the graph.
+At approximately 115 seconds, the volume increases significantly, reflected by a sharp rise in energy novelty.
+Around 165 seconds, the volume diminishes, matching the final large peak before a drop in novelty.
+This suggests, that the signal function is probably accurate and captures the transitions in the music well. It was expected that the signal novelty function would work well, because the song has some dramtic changes.
+
+# Spectral novelty function
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_spectral_novelty() |> 
+  ggplot(aes(t, novelty)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Time (s)", y = "Spectral Novelty")
+```
+<br><br><br>
+The spectral novelty function graph is significant less clear than the energy novelty function graph. Here we see no prominent cycles, but we can slightly see peeks at 10 seconds and 160 seconds, which we also saw (but more clear) in the energy novel function. However an additonal peak can be observed at the end of the track, which is also hearable in the song, at the end the song slows down and the volume weakens. We see no clear repeating patterns in the song.
+
+# Non-cyclyc tempogram
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = FALSE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+<br><br><br>
+We observe three distinct lines around 160 BPM, 360 BPM, and 500 BPM. However I think 160 BPM is very fast for this song, because it sounds like an emotional piano piece
+# cyclic tempogram
+```{r, echo=FALSE}
+"features/ahram-j-1.json" |>
+  compmus_tempogram(window_size = 8, hop_size = 1, cyclic = TRUE) |>
+  ggplot(aes(x = time, y = bpm, fill = power)) +
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +
+  labs(x = "Time (s)", y = "Tempo (BPM)") +
+  theme_classic()
+```
+<br><br><br>
+The cyclic tempogram seems more representative we see a prominent line at 80 BPM, which is suitable for a moderate tempo emotional piano piece. 
+
+# Keygram visualisation
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+"features/ahram-j-1.json" |> 
+  compmus_chroma(norm = "identity") |> 
+  compmus_match_pitch_templates(
+    key_templates,         # Change to chord_templates if desired
+    norm = "euclidean",       # Try different norms (and match it with what you used in `compmus_chroma`)
+    distance = "angular"   # Try different distance metrics
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +                 
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = "Template", fill = NULL) +
+  theme_classic() 
+```
+<br><br><br>
+In the keygram graph, we can notice the most intense color values, especially between 0-100 seconds, around C major and G major. Additionally, E minor appears relatively stable, with less variation in color intensity, with fewer yellow and greenish hues. This is interesting because, according to the Circle of Fifths, E minor is the relative minor of G major. B and E major, and G and C minor are also noticeable.
+
+# Chordogram visualisation 
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+"features/ahram-j-1.json" |> 
+  compmus_chroma(norm = "identity") |> 
+  compmus_match_pitch_templates(
+    chord_templates,         # Change to chord_templates if desired
+    norm = "manhattan",       # Try different norms (and match it with what you used in `compmus_chroma`)
+    distance = "manhattan"   # Try different distance metrics
+  ) |>
+  ggplot(aes(x = time, y = name, fill = d)) + 
+  geom_raster() +
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = "Template", fill = NULL) +
+  theme_classic() 
+
+```
+<br><br><br>
+In the choreography visualization we can see very intense values throughout the whole track for E minor, also noticeable is C major. In the first few second of the track we van see darker hues of B minor, G major and a bit of B major. Additionally at the ned of the track we see now light hues, and darker blocks from E major to A:7 and E minor to A minor.  
+
+# Chroma visualisation
+```{r, echo=FALSE}
+library(tidyverse)
+source("compmus.R")
+
+"features/ahram-j-1.json" |>                           # Change the track
+  compmus_chroma(norm = "identity") |>                 # Change the norm
+  ggplot(aes(x = time, y = pc, fill = value)) + 
+  geom_raster() +
+  scale_y_continuous(
+    breaks = 0:11,
+    minor_breaks = NULL,
+    labels = c(
+                "C", "C#|Db", "D", "D#|Eb",
+                "E", "F", "F#|Gb", "G",
+                "G#|Ab", "A", "A#|Bb", "B"
+              )
+  ) +
+  scale_fill_viridis_c(guide = "none") +               # Change the colours?
+  labs(x = "Time (s)", y = NULL, fill = NULL) +
+  theme_classic()   
+```
+
+# Intorduction
+
+On this page I am going to compare my two songs to my class corpus. 
+I am unfortunately not a musician, so I decided to generate a song and choose a royalty free song.
+
+Song 1:
+I generated this song by using Soundful’s free AI music generator. First I had to choose genre, I chose pop rock. Then I had to decide for the speed/BPM. I decided 121 BPM. For chords and scales, I selected F# minor. I wanted to select two different songs, so for this song I chose a somewhat faster and energetic song.
+
+Song 2:
+I picked this song from the site from Pixabay. Because I had the idea to selected two different songs, I wanted a ‘slower’ song with more calm vibes, opposed to the faster rock song. However towards the end of the song there is a fragment that sound heroic and cinematic, which I find to be an interesting component in this song. Also, I wanted to have a human created song, so I can maybe analyse if there are differences between the AI generated song (I filtered the songs on this site to be strictly human generated). Song: Sweet Dreams by: Lexin_Music.
+
+
+
+# first visualisation
+```{r, echo=FALSE}
+library(readr)
+compmus2025 <- read_csv("compmus2025.csv")
+correlation_compmus2025 <- cor(compmus2025[sapply(compmus2025, is.numeric)], use = "pairwise.complete.obs")
+corrplot(correlation_compmus2025, method = 'number')
+title("Correlations between the parameters of the classes' songs", line=3.5)
+```
+<br><br><br>
+<div style="margin-top: 15px;"> This is a informative plot, that calculates the correlation between each parameter pair. This is useful for further research and plots. </div> 
+
+# Second visualisation 
+```{r, echo=FALSE}
+library(ggplot2)
+
+compmus2025 |>                  
+  ggplot(                     
+    aes(
+      x = tempo,
+      y = arousal,
+      size = instrumentalness,
+      colour = danceability
+    )
+  ) +
+  geom_point() +              # Scatter plot (RE-ADDED)
+  geom_rug(linewidth = 0.1) + # Fringes to show data distribution (RE-ADDED)
+  scale_x_continuous(         
+    limits = c(50, 200),
+    breaks = c(50, 100, 150, 200),
+    minor_breaks = NULL       
+  ) +
+  scale_y_continuous(         
+    limits = c(1, 9),
+    breaks = c(1, 5, 9),
+    minor_breaks = NULL
+  ) +
+  scale_colour_viridis_c() +  
+  scale_size_continuous(      
+    trans = "exp",            
+    guide = "none"            
+  ) +
+  theme_light() +             
+  labs(                       
+    x = "Engagingness",
+    y = "Arousal",
+    colour = "Valence"
+  ) + ggtitle('relation between three parameters compmus2025')
+```
+<br><br><br>
+<div style="margin-top: 15px;"> As a result of the correlation matrix, I thought it was a good idea to improve the visualisation from class, by first implementing it on the class data instead, and use three parameters that are highly (positive) correlated. I unfortunatly do not have the parameters of my own songs yet, otherwise I would have put my songs in this plot, to show the relationship between my songs and the songs of the class. </div> 
+
