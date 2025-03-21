@@ -96,7 +96,7 @@ compmus_dist |>
 heatmaply(
   cluster_juice,
   hclustfun = hclust,
-  hclust_method = "complete",  # Change for single, average, or complete linkage.
+  hclust_method = "complete ",  # Change for single, average, or complete linkage.
   dist_method = "euclidean"
 )
 ```
@@ -106,7 +106,7 @@ Row {.sidebar data-height=1000}
 ### Analysis 
 - We can see that clustering with the method single, gives us the worst result, the cluster splits are very small and not vertically balanced. The average method gives us better results, we can already see clusters more higher up in the tree, but on the left we can see a cluster, whcih is not taking into regard in the higher clusters. In the complete clustering we see reasonable balanced clusters, and we see that the first 2 clusters at the top include all the songs. 
 
--  in the heatmap
+-  in the heatmap we can see that tempo has some 'blocks' with the same score. Because of this, it is likely that clusters have the same tempo. The other features have more variety in scores, which makes this features also interessting for clustering.
 
 
 Classification
