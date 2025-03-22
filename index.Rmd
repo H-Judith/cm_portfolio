@@ -4,9 +4,6 @@ output:
   flexdashboard::flex_dashboard:
     orientation: rows
     vertical_layout: scroll
-    self_contained: true
-    keep_md: true
-    standalone: true
 ---
 
 ```{r setup, include=FALSE}
@@ -67,10 +64,12 @@ Row {data-height=400}
 -----------------------------------------------------------------------
 ### Single linkage 
 ```{r, echo=FALSE}
-compmus_dist |> 
-  hclust(method = "single") |>  
-  dendro_data() |>
-  ggdendrogram()
+print(
+  compmus_dist |> 
+    hclust(method = "single") |> 
+    dendro_data() |> 
+    ggdendrogram()
+)
 ```
 -----------------------------------------------------------------------
 ### Average linkage 
@@ -85,10 +84,12 @@ Row {data-height=400}
 -----------------------------------------------------------------------
 ### Complete linkage
 ```{r, echo=FALSE}
-compmus_dist |> 
-  hclust(method = "complete") |> # Try single, average, and complete.
-  dendro_data() |>
-  ggdendrogram()
+print(
+  compmus_dist |> 
+    hclust(method = "complete") |> 
+    dendro_data() |> 
+    ggdendrogram()
+)
 ```
 -----------------------------------------------------------------------
 ### Heatmap of feature values 
@@ -96,7 +97,7 @@ compmus_dist |>
 heatmaply(
   cluster_juice,
   hclustfun = hclust,
-  hclust_method = "complete ",  # Change for single, average, or complete linkage.
+  hclust_method = "complete",  # Change for single, average, or complete linkage.
   dist_method = "euclidean"
 )
 ```
@@ -202,6 +203,9 @@ plot1 <- compmus2025_filtered |>
 ggplotly(plot1)
 
 ```
+<br><br><br>
+I made a graph based on the most useful features for random forest, which where instrumentalness, aurasal and danceability. In the interative plot we can see that there are areas where AI or non AI music tend to be. However we can still see much overlap in some areas. Also the danceability in some areas is higher for AI music.
+
 #  Signal novelty function
 ```{r, echo=FALSE}
 "features/ahram-j-1.json" |>
@@ -385,4 +389,6 @@ compmus2025 |>
 ```
 <br><br><br>
 <div style="margin-top: 15px;"> As a result of the correlation matrix, I thought it was a good idea to improve the visualisation from class, by first implementing it on the class data instead, and use three parameters that are highly (positive) correlated. I unfortunatly do not have the parameters of my own songs yet, otherwise I would have put my songs in this plot, to show the relationship between my songs and the songs of the class. </div> 
+
+
 
