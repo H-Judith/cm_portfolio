@@ -2,6 +2,9 @@
 title: "CompMus"
 output: 
   flexdashboard::flex_dashboard:
+    theme: 
+      version: 4
+      bootswatch: minty
     orientation: rows
     vertical_layout: scroll
 ---
@@ -60,18 +63,17 @@ compmus_dist <- dist(cluster_juice, method = "euclidean")
 ```
 Hierarchical Clustering 
 =====================================
-Row {data-height=400}
+Row {.tabset}
 -----------------------------------------------------------------------
+
 ### Single linkage 
 ```{r, echo=FALSE}
-print(
   compmus_dist |> 
     hclust(method = "single") |> 
     dendro_data() |> 
     ggdendrogram()
-)
 ```
------------------------------------------------------------------------
+
 ### Average linkage 
 ```{r, echo=FALSE}
 compmus_dist |> 
@@ -80,8 +82,6 @@ compmus_dist |>
   ggdendrogram()
 ```
 
-Row {data-height=400}
------------------------------------------------------------------------
 ### Complete linkage
 ```{r, echo=FALSE}
 print(
@@ -91,8 +91,11 @@ print(
     ggdendrogram()
 )
 ```
+
+Row
 -----------------------------------------------------------------------
 ### Heatmap of feature values 
+
 ```{r, echo=FALSE}
 heatmaply(
   cluster_juice,
@@ -102,15 +105,15 @@ heatmaply(
 )
 ```
 
-Row {.sidebar data-height=1000}
+Row{.sidebar}
 -------------------------------------
+
 ### Analysis 
 - We can see that clustering with the method single, gives us the worst result, the cluster splits are very small and not vertically balanced. The average method gives us better results, we can already see clusters more higher up in the tree, but on the left we can see a cluster, whcih is not taking into regard in the higher clusters. In the complete clustering we see reasonable balanced clusters, and we see that the first 2 clusters at the top include all the songs. 
 
 -  in the heatmap we can see that tempo has some 'blocks' with the same score. Because of this, it is likely that clusters have the same tempo. The other features have more variety in scores, which makes this features also interessting for clustering.
 
-
-Classification
+K-Nearest Neighbour
 =====================================
 ```{r, echo=FALSE}
 compmus2025_filtered <- 
@@ -154,9 +157,20 @@ pr_df |>
   gt() |>
   tab_header(title = "Precision and Recall per Class") |>
   fmt_number(columns = c("precision", "recall"), decimals = 2)
+
+classification_knn |> get_pr()
 ```
-# Random forest 
+
+
+Random Forest
+=====================================
+
+Row {data-height=650}
+-------------------------------------
+
+### table with accuracies
 ```{r, echo=FALSE}
+# model
 forest_model <-
   rand_forest() |>
   set_mode("classification") |> 
@@ -169,10 +183,37 @@ indie_forest <-
     compmus_cv, 
     control = control_resamples(save_pred = TRUE)
   )
+```
 
-# table with accuracies
+```{r, echo=FALSE}
+# good plot of random forest 
+plot1 <- compmus2025_filtered |>
+  ggplot(aes(x = instrumentalness, y = arousal, colour = ai, size = danceability)) +
+  geom_point(alpha = 0.8) +
+  scale_color_viridis_d() +
+  labs(
+    x = "Instrumentalness",
+    y = "Arousal",
+    size = "Danceability",
+    colour = "AI"
+  )
+
+ggplotly(plot1)
+```
+
+Row {data-height=350}
+-------------------------------------
+
+### accuracies of RF
+```{r, echo=FALSE}
+
 indie_forest |> get_pr()
 
+
+```
+
+### most important features of RF
+```{r, echo=FALSE}
 # most important features
 workflow() |> 
   add_recipe(classification_recipe) |> 
@@ -188,23 +229,13 @@ workflow() |>
   theme_minimal() +
   labs(x = NULL, y = "Importance")
 
-# good plot of random forest 
-plot1 <- compmus2025_filtered |>
-  ggplot(aes(x = instrumentalness, y = arousal, colour = ai, size = danceability)) +
-  geom_point(alpha = 0.8) +
-  scale_color_viridis_d() +
-  labs(
-    x = "Instrumentalness",
-    y = "Arousal",
-    size = "Danceability",
-    colour = "AI"
-  )
-
-ggplotly(plot1)
-
 ```
-<br><br><br>
-I made a graph based on the most useful features for random forest, which where instrumentalness, aurasal and danceability. In the interative plot we can see that there are areas where AI or non AI music tend to be. However we can still see much overlap in some areas. Also the danceability in some areas is higher for AI music.
+
+Row{.sidebar}
+-------------------------------------
+
+### Analysis 
+I made a graph based on the most useful features for random forest, which where instrumentalness, aurasal and danceability. I have plotted these features in an interactive tive plot, to see the relationship between the features and the AI, Non-AI music. We can see that there are areas where AI or non AI music are more likely to be. However we can still see much overlap in some areas. Another thing to note is that on averege danceability is higher for AI music.
 
 #  Signal novelty function
 ```{r, echo=FALSE}
@@ -389,6 +420,4 @@ compmus2025 |>
 ```
 <br><br><br>
 <div style="margin-top: 15px;"> As a result of the correlation matrix, I thought it was a good idea to improve the visualisation from class, by first implementing it on the class data instead, and use three parameters that are highly (positive) correlated. I unfortunatly do not have the parameters of my own songs yet, otherwise I would have put my songs in this plot, to show the relationship between my songs and the songs of the class. </div> 
-
-
 
